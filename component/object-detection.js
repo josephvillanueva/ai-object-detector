@@ -5,6 +5,7 @@ import Webcam from "react-webcam";
 import { load as cocoSSDLoad } from "@tensorflow-models/coco-ssd";
 import * as tf from "@tensorflow/tfjs";
 import { renderPredictions } from "@/utils/render-predictions";
+import styles from "./styles.module.scss";
 
 let detectInterval;
 
@@ -21,7 +22,7 @@ const ObjectDetection = () => {
 
     detectInterval = setInterval(() => {
       runObjectDetection(net);
-    }, 100);
+    }, 10);
   }
 
   async function runObjectDetection(net) {
@@ -68,15 +69,10 @@ const ObjectDetection = () => {
         <div className="gradient-text">Loading AI Model...</div>
       ) : (
         <div className="relative flex justify-center items-center gradient p-1.5 rounded-md">
-          <Webcam
-            ref={webcamRef}
-            className="rounded-md w-full lg:h-[720px]"
-            muted
-          />
-          <canvas
-            ref={canvasRef}
-            className="absolute top-0 left-0 w-full lg:h-[720px]"
-          />
+          <div className="relative">
+            <Webcam ref={webcamRef} className={styles.webcamStyles} muted />
+            <canvas ref={canvasRef} className={styles.canvasStyles} />
+          </div>
         </div>
       )}
     </div>
