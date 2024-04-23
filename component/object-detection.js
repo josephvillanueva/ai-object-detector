@@ -20,8 +20,8 @@ const ObjectDetection = () => {
     setIsLoading(false);
 
     detectInterval = setInterval(() => {
-      runObjectDetection(net); // will build this next
-    }, 10);
+      runObjectDetection(net);
+    }, 100);
   }
 
   async function runObjectDetection(net) {
