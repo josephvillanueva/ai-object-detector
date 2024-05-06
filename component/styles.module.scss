@@ -1,5 +1,8 @@
 .canvasStyles {
-  @apply absolute top-0 left-0 z-10 w-full h-full  lg:h-[720px];
+  @apply absolute z-10 lg:h-[720px];
+
+  top: 8rem;
+  left: 37rem;
 }
 
 .webcamStyles {
