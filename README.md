@@ -17,6 +17,12 @@ Point your webcam at a room and get live bounding boxes and labels for the objec
 
 **No video leaves your device.** Inference runs on your own GPU/CPU through TensorFlow.js, with no server and no upload, which is also why the app can be a static Vercel deploy.
 
+## Architecture
+
+![AI Object Detector architecture: webcam frames feed a detection loop that calls COCO-SSD in TensorFlow.js and draws boxes on a canvas overlay, with model weights downloaded once from Google Cloud Storage](docs/architecture.svg)
+
+The only network traffic is the page itself and a one-time download of the model weights. Frames go from the webcam to the model and onto the canvas without leaving the device.
+
 ## Tech stack
 
 - **Next.js 15** and **React 19**
@@ -39,4 +45,4 @@ Open http://localhost:3000 and allow camera access. The first load downloads the
 
 - Add a front/rear camera toggle for mobile
 - Let people filter to the object classes they care about
-- Offer the lighter `lite_mobilenet_v2` base model on low-powered devices
+- Let capable devices opt into the larger `mobilenet_v2` base model for better accuracy (the app uses the default `lite_mobilenet_v2`)
