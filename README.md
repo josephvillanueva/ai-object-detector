@@ -12,7 +12,7 @@ Point your webcam at a room and get live bounding boxes and labels for the objec
 1. **Load the model.** On mount, the app loads [COCO-SSD](https://github.com/tensorflow/tfjs-models/tree/master/coco-ssd), a pre-trained single-shot detector that recognizes 80 common object classes, through TensorFlow.js.
 2. **Read the webcam.** `react-webcam` streams video into a `<video>` element.
 3. **Detect on a loop.** Once the video is ready, a `requestAnimationFrame` loop passes each frame to `model.detect()` with a 0.6 confidence threshold. The next frame is requested only after the current detection resolves, so inference calls never overlap, and the loop is cancelled when the component unmounts or detection is paused.
-4. **Draw the results.** A `<canvas>` overlay uses the video's native resolution and is stretched over it with CSS, so boxes stay aligned at any screen size. Each box is labelled with its class and confidence score.
+4. **Draw the results.** The stage takes the camera's own aspect ratio once its dimensions are known, so the video fills it with no letterboxing. The `<canvas>` overlay uses the video's native resolution and covers the same box, so boxes line up on any camera and at any screen size. Each box is labelled with its class and confidence score, and a side panel lists what is in view.
 5. **Handle failure.** A blocked, missing, or busy camera and a failed model download each get a specific message instead of a blank screen.
 
 **No video leaves your device.** Inference runs on your own GPU/CPU through TensorFlow.js, with no server and no upload, which is also why the app can be a static Vercel deploy.

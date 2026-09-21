@@ -6,7 +6,6 @@ import { load as loadCocoSsd } from "@tensorflow-models/coco-ssd";
 // Registers the WebGL and CPU backends that COCO-SSD runs on.
 import "@tensorflow/tfjs";
 import { renderPredictions } from "@/utils/render-predictions";
-import styles from "./styles.module.scss";
 
 const MIN_SCORE = 0.6;
 
@@ -18,6 +17,22 @@ const CAMERA_MESSAGES = {
     "The camera is already in use by another app. Close it and reload.",
 };
 
+// Groups predictions by class, keeping the count and best score for each.
+function summarise(predictions) {
+  const byClass = new Map();
+  for (const { class: label, score } of predictions) {
+    const entry = byClass.get(label) ?? { label, count: 0, score: 0 };
+    entry.count += 1;
+    entry.score = Math.max(entry.score, score);
+    byClass.set(label, entry);
+  }
+  return [...byClass.values()].sort((a, b) => b.score - a.score);
+}
+
+// Coarse fingerprint so the panel only re-renders when what it shows changes.
+const fingerprint = (summary) =>
+  summary.map((s) => `${s.label}:${s.count}:${Math.round(s.score * 20)}`).join("|");
+
 const ObjectDetection = () => {
   const webcamRef = useRef(null);
   const canvasRef = useRef(null);
@@ -26,6 +41,7 @@ const ObjectDetection = () => {
   const [modelStatus, setModelStatus] = useState("loading");
   const [cameraError, setCameraError] = useState(null);
   const [cameraReady, setCameraReady] = useState(false);
+  const [aspectRatio, setAspectRatio] = useState(4 / 3);
   const [paused, setPaused] = useState(false);
   const [detected, setDetected] = useState([]);
   const [fps, setFps] = useState(0);
@@ -47,6 +63,25 @@ const ObjectDetection = () => {
     };
   }, []);
 
+  // The stage takes the camera's real aspect ratio, so the video fills it with
+  // no letterboxing and the canvas overlay covers exactly the same pixels.
+  useEffect(() => {
+    const video = webcamRef.current?.video;
+    if (!cameraReady || !video) return;
+    const update = () => {
+      if (video.videoWidth && video.videoHeight) {
+        setAspectRatio(video.videoWidth / video.videoHeight);
+      }
+    };
+    update();
+    video.addEventListener("loadedmetadata", update);
+    video.addEventListener("resize", update);
+    return () => {
+      video.removeEventListener("loadedmetadata", update);
+      video.removeEventListener("resize", update);
+    };
+  }, [cameraReady]);
+
   // One detection per animation frame, and the next frame is only requested
   // after the current detection resolves, so inference calls never overlap.
   useEffect(() => {
@@ -56,6 +91,7 @@ const ObjectDetection = () => {
     let stopped = false;
     let frames = 0;
     let windowStart = performance.now();
+    let lastFingerprint = "";
 
     const detectFrame = async () => {
       const video = webcamRef.current?.video;
@@ -75,10 +111,12 @@ const ObjectDetection = () => {
         if (stopped) return;
         renderPredictions(predictions, canvas.getContext("2d"));
 
-        const labels = [...new Set(predictions.map((p) => p.class))];
-        setDetected((prev) =>
-          prev.join() === labels.join() ? prev : labels
-        );
+        const summary = summarise(predictions);
+        const next = fingerprint(summary);
+        if (next !== lastFingerprint) {
+          lastFingerprint = next;
+          setDetected(summary);
+        }
 
         frames += 1;
         const now = performance.now();
@@ -109,71 +147,146 @@ const ObjectDetection = () => {
     );
   }, []);
 
-  if (modelStatus === "error") {
+  const fatal =
+    modelStatus === "error"
+      ? "The detection model could not be downloaded. Check your connection and reload the page."
+      : cameraError;
+
+  if (fatal) {
     return (
-      <p className={styles.status} role="alert">
-        The detection model could not be downloaded. Check your connection and
-        reload the page.
+      <p
+        role="alert"
+        className="max-w-xl rounded-2xl border border-red-400/30 bg-red-500/10 p-5 text-red-100"
+      >
+        {fatal}
       </p>
     );
   }
 
-  if (cameraError) {
-    return (
-      <p className={styles.status} role="alert">
-        {cameraError}
-      </p>
-    );
-  }
+  const running = modelStatus === "ready" && cameraReady;
+  const rate = fps < 10 ? fps.toFixed(1) : Math.round(fps);
 
   return (
-    <div className={styles.wrapper}>
-      <div className={styles.stage}>
-        <Webcam
-          ref={webcamRef}
-          className={styles.video}
-          muted
-          audio={false}
-          videoConstraints={{ facingMode: "environment" }}
-          onUserMedia={() => setCameraReady(true)}
-          onUserMediaError={handleCameraError}
-        />
-        {/* Sized to the video's native resolution and stretched over it with
-            CSS, so boxes line up at every screen size. */}
-        <canvas ref={canvasRef} className={styles.overlay} aria-hidden="true" />
-
-        {(modelStatus === "loading" || !cameraReady) && (
-          <div className={styles.loading}>
-            {modelStatus === "loading"
-              ? "Loading the detection model..."
-              : "Waiting for camera access..."}
-          </div>
-        )}
-      </div>
-
-      <div className={styles.toolbar}>
-        <button
-          type="button"
-          className={styles.button}
-          onClick={() => setPaused((p) => !p)}
-          disabled={modelStatus !== "ready" || !cameraReady}
-          aria-pressed={paused}
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+      <section aria-label="Camera">
+        <div
+          className="relative overflow-hidden rounded-2xl bg-zinc-900 ring-1 ring-white/10"
+          style={{ aspectRatio }}
         >
-          {paused ? "Resume detection" : "Pause detection"}
-        </button>
-        <span className={styles.meta}>
-          {paused
-            ? "Paused"
-            : // One decimal below 10, so slow CPU-only devices do not read "0".
-              `${fps < 10 ? fps.toFixed(1) : Math.round(fps)} detections per second`}
-        </span>
-      </div>
+          <Webcam
+            ref={webcamRef}
+            className="absolute inset-0 h-full w-full object-cover"
+            muted
+            audio={false}
+            videoConstraints={{ facingMode: "environment" }}
+            onUserMedia={() => setCameraReady(true)}
+            onUserMediaError={handleCameraError}
+          />
+          <canvas
+            ref={canvasRef}
+            className="pointer-events-none absolute inset-0 h-full w-full"
+            aria-hidden="true"
+          />
 
-      <p className={styles.detected} aria-live="polite">
-        {detected.length > 0
-          ? `Detected: ${detected.join(", ")}`
-          : "Nothing detected yet. Point the camera at people or everyday objects."}
-      </p>
+          {running && (
+            <div className="absolute inset-x-3 top-3 flex items-center justify-between gap-2 text-xs font-medium">
+              {/* One static dot, because it marks real state (live or paused). */}
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-950/70 px-2.5 py-1 backdrop-blur">
+                <span
+                  aria-hidden="true"
+                  className={`h-2 w-2 rounded-full ${paused ? "bg-zinc-500" : "bg-red-500"}`}
+                />
+                {paused ? "Paused" : "Live"}
+              </span>
+              {!paused && (
+                <span className="rounded-full bg-zinc-950/70 px-2.5 py-1 tabular-nums backdrop-blur">
+                  {rate} fps
+                </span>
+              )}
+            </div>
+          )}
+
+          {!running && (
+            <div className="absolute inset-0 grid place-items-center bg-zinc-900 px-6 text-center">
+              <div>
+                <p className="font-medium text-zinc-200">
+                  {modelStatus === "loading"
+                    ? "Downloading the detection model"
+                    : "Waiting for camera access"}
+                </p>
+                <p className="mt-1 text-sm text-zinc-500">
+                  {modelStatus === "loading"
+                    ? "Your browser caches it, so later visits start faster."
+                    : "Your browser should be asking for permission."}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={() => setPaused((p) => !p)}
+            disabled={!running}
+            aria-pressed={paused}
+            className="rounded-xl bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {paused ? "Resume detection" : "Pause detection"}
+          </button>
+          <p className="text-sm text-zinc-500">
+            Shows objects detected with at least {Math.round(MIN_SCORE * 100)}%
+            confidence
+          </p>
+        </div>
+      </section>
+
+      <aside className="flex flex-col gap-4">
+        <section className="rounded-2xl bg-white/[0.03] p-5 ring-1 ring-white/10">
+          <h2 className="font-semibold">Detected now</h2>
+          <div aria-live="polite">
+            {detected.length === 0 ? (
+              <p className="mt-3 text-sm text-zinc-500">
+                Nothing yet. Try pointing the camera at a person or a coffee
+                mug.
+              </p>
+            ) : (
+              <ul className="mt-3 flex flex-col gap-3">
+                {detected.map(({ label, count, score }) => (
+                  <li key={label}>
+                    <div className="flex items-baseline justify-between text-sm">
+                      <span className="font-medium capitalize">
+                        {label}
+                        {count > 1 && (
+                          <span className="ml-1.5 text-zinc-500">×{count}</span>
+                        )}
+                      </span>
+                      <span className="tabular-nums text-zinc-400">
+                        {Math.round(score * 100)}%
+                      </span>
+                    </div>
+                    <div
+                      aria-hidden="true"
+                      className="mt-1.5 h-1 rounded-full bg-cyan-400"
+                      style={{ width: `${score * 100}%` }}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+
+        <section className="px-1">
+          <h2 className="font-semibold">How it works</h2>
+          <p className="mt-2 text-sm leading-relaxed text-zinc-400">
+            The COCO-SSD model runs through TensorFlow.js on your own GPU, or
+            your CPU if there isn&apos;t one, and checks each frame the moment
+            the last check finishes. Nothing is sent to a server, which is why
+            this works as a static site with no backend.
+          </p>
+        </section>
+      </aside>
     </div>
   );
 };
