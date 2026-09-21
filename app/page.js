@@ -35,7 +35,7 @@ export default function Home() {
       <footer className="border-t border-white/5 py-6 text-center text-sm text-zinc-500">
         Built by{" "}
         <a
-          href="https://joseph-react-portfolio.vercel.app"
+          href="https://joseph-villanueva-portfolio.vercel.app"
           className="font-medium text-zinc-300 underline-offset-4 hover:underline"
         >
           Joseph Villanueva
