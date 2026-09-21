@@ -11,8 +11,9 @@ Point your webcam at a room and get live bounding boxes and labels for the objec
 
 1. **Load the model.** On mount, the app loads [COCO-SSD](https://github.com/tensorflow/tfjs-models/tree/master/coco-ssd), a pre-trained single-shot detector that recognizes 80 common object classes, through TensorFlow.js.
 2. **Read the webcam.** `react-webcam` streams video into a `<video>` element.
-3. **Detect on a loop.** Once the video is ready, each frame is passed to `model.detect()` with a 0.6 confidence threshold.
-4. **Draw the results.** A `<canvas>` overlay is sized to the video's resolution. Each prediction's bounding box and class label is drawn onto it, and the canvas is cleared between frames.
+3. **Detect on a loop.** Once the video is ready, a `requestAnimationFrame` loop passes each frame to `model.detect()` with a 0.6 confidence threshold. The next frame is requested only after the current detection resolves, so inference calls never overlap, and the loop is cancelled when the component unmounts or detection is paused.
+4. **Draw the results.** A `<canvas>` overlay uses the video's native resolution and is stretched over it with CSS, so boxes stay aligned at any screen size. Each box is labelled with its class and confidence score.
+5. **Handle failure.** A blocked, missing, or busy camera and a failed model download each get a specific message instead of a blank screen.
 
 **No video leaves your device.** Inference runs on your own GPU/CPU through TensorFlow.js, with no server and no upload, which is also why the app can be a static Vercel deploy.
 
@@ -36,7 +37,6 @@ Open http://localhost:3000 and allow camera access. The first load downloads the
 
 ## What I'd do next
 
-- Drive the loop with `requestAnimationFrame` so detection runs no faster than the display refreshes
-- Clear the detection loop when the component unmounts
-- Show confidence scores alongside the labels
 - Add a front/rear camera toggle for mobile
+- Let people filter to the object classes they care about
+- Offer the lighter `lite_mobilenet_v2` base model on low-powered devices
