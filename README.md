@@ -2,7 +2,7 @@
 
 Point your webcam at a room and get live bounding boxes and labels for the objects in it. Detection runs entirely in the browser.
 
-**Live:** https://ai-object-detector-josephvillanueva.vercel.app
+**Live:** https://ai-object-detector-josephvillanueva.vercel.app · **[Product brief](docs/PRODUCT.md)** · **[Roadmap](https://github.com/josephvillanueva/ai-object-detector/milestone/1)**
 
 <!-- Add a screenshot or GIF and uncomment: -->
 <!-- ![Detected objects with bounding boxes](docs/demo.gif) -->
