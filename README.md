@@ -1,36 +1,42 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# AI Object Detector
 
-## Getting Started
+Point your webcam at a room and get live bounding boxes and labels for the objects in it. Detection runs entirely in the browser.
 
-First, run the development server:
+**Live:** https://ai-object-detector-josephvillanueva.vercel.app
+
+<!-- Add a screenshot or GIF and uncomment: -->
+<!-- ![Detected objects with bounding boxes](docs/demo.gif) -->
+
+## How it works
+
+1. **Load the model.** On mount, the app loads [COCO-SSD](https://github.com/tensorflow/tfjs-models/tree/master/coco-ssd), a pre-trained single-shot detector that recognizes 80 common object classes, through TensorFlow.js.
+2. **Read the webcam.** `react-webcam` streams video into a `<video>` element.
+3. **Detect on a loop.** Once the video is ready, each frame is passed to `model.detect()` with a 0.6 confidence threshold.
+4. **Draw the results.** A `<canvas>` overlay is sized to the video's resolution. Each prediction's bounding box and class label is drawn onto it, and the canvas is cleared between frames.
+
+**No video leaves your device.** Inference runs on your own GPU/CPU through TensorFlow.js, with no server and no upload, which is also why the app can be a static Vercel deploy.
+
+## Tech stack
+
+- **Next.js 15** and **React 19**
+- **TensorFlow.js** with the **COCO-SSD** model
+- **react-webcam** for camera access
+- **Tailwind CSS** and SCSS modules
+
+## Running locally
 
 ```bash
+git clone https://github.com/josephvillanueva/ai-object-detector.git
+cd ai-object-detector
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000 and allow camera access. The first load downloads the model weights, so give it a few seconds.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## What I'd do next
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+- Drive the loop with `requestAnimationFrame` so detection runs no faster than the display refreshes
+- Clear the detection loop when the component unmounts
+- Show confidence scores alongside the labels
+- Add a front/rear camera toggle for mobile
