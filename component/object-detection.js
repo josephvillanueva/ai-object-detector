@@ -45,6 +45,11 @@ const ObjectDetection = () => {
   const [paused, setPaused] = useState(false);
   const [detected, setDetected] = useState([]);
   const [fps, setFps] = useState(0);
+  // Video inputs, known once camera permission is granted (labels are hidden
+  // before that). The switch button only appears when there is more than one.
+  const [cameras, setCameras] = useState([]);
+  const [cameraIndex, setCameraIndex] = useState(null);
+  const [switching, setSwitching] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,16 +103,26 @@ const ObjectDetection = () => {
       const canvas = canvasRef.current;
       if (stopped || !video || !canvas) return;
 
-      if (video.readyState === 4) {
-        if (canvas.width !== video.videoWidth) {
+      // While a camera switch swaps streams, the video can briefly report a
+      // zero size; skip those frames rather than sizing the canvas to nothing.
+      const hasFrame =
+        video.readyState === 4 && video.videoWidth > 0 && video.videoHeight > 0;
+
+      if (hasFrame) {
+        if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
         }
-        const predictions = await modelRef.current.detect(
-          video,
-          undefined,
-          MIN_SCORE
-        );
+        let predictions;
+        try {
+          predictions = await modelRef.current.detect(video, undefined, MIN_SCORE);
+        } catch (error) {
+          // A frame caught mid-switch can fail; keep the loop alive and try
+          // the next frame instead of stopping detection for good.
+          console.warn("Skipped a frame that could not be read", error);
+          if (!stopped) frameId = requestAnimationFrame(detectFrame);
+          return;
+        }
         if (stopped) return;
         renderPredictions(predictions, canvas.getContext("2d"));
 
@@ -137,6 +152,44 @@ const ObjectDetection = () => {
       cancelAnimationFrame(frameId);
     };
   }, [modelStatus, cameraReady, paused]);
+
+  const refreshCameras = useCallback(async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) return;
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    setCameras(devices.filter((device) => device.kind === "videoinput"));
+  }, []);
+
+  useEffect(() => {
+    const media = navigator.mediaDevices;
+    if (!media?.addEventListener) return;
+    media.addEventListener("devicechange", refreshCameras);
+    return () => media.removeEventListener("devicechange", refreshCameras);
+  }, [refreshCameras]);
+
+  const handleUserMedia = useCallback(() => {
+    setCameraReady(true);
+    setSwitching(false);
+    refreshCameras();
+  }, [refreshCameras]);
+
+  // Moves to the next camera. The model stays loaded, and the detection loop
+  // simply waits for the new stream; the canvas and stage resize themselves
+  // when the new video's dimensions arrive.
+  const switchCamera = useCallback(() => {
+    if (cameras.length < 2) return;
+    const activeId = webcamRef.current?.stream
+      ?.getVideoTracks()[0]
+      ?.getSettings().deviceId;
+    const current =
+      cameraIndex ?? Math.max(0, cameras.findIndex((camera) => camera.deviceId === activeId));
+    setSwitching(true);
+    setCameraIndex((current + 1) % cameras.length);
+  }, [cameras, cameraIndex]);
+
+  const videoConstraints =
+    cameraIndex === null || !cameras[cameraIndex]
+      ? { facingMode: "environment" }
+      : { deviceId: { exact: cameras[cameraIndex].deviceId } };
 
   const handleCameraError = useCallback((error) => {
     console.error("Camera failed to start", error);
@@ -178,8 +231,8 @@ const ObjectDetection = () => {
             className="absolute inset-0 h-full w-full object-cover"
             muted
             audio={false}
-            videoConstraints={{ facingMode: "environment" }}
-            onUserMedia={() => setCameraReady(true)}
+            videoConstraints={videoConstraints}
+            onUserMedia={handleUserMedia}
             onUserMediaError={handleCameraError}
           />
           <canvas
@@ -225,15 +278,27 @@ const ObjectDetection = () => {
         </div>
 
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={() => setPaused((p) => !p)}
-            disabled={!running}
-            aria-pressed={paused}
-            className="rounded-xl bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {paused ? "Resume detection" : "Pause detection"}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setPaused((p) => !p)}
+              disabled={!running}
+              aria-pressed={paused}
+              className="rounded-xl bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-white active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {paused ? "Resume detection" : "Pause detection"}
+            </button>
+            {cameras.length > 1 && (
+              <button
+                type="button"
+                onClick={switchCamera}
+                disabled={!running || switching}
+                className="rounded-xl px-4 py-2 text-sm font-semibold text-zinc-100 ring-1 ring-white/20 transition hover:bg-white/10 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {switching ? "Switching camera..." : "Switch camera"}
+              </button>
+            )}
+          </div>
           <p className="text-sm text-zinc-500">
             Shows objects detected with at least {Math.round(MIN_SCORE * 100)}%
             confidence
