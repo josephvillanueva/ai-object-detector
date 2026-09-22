@@ -4,8 +4,7 @@ Point your webcam at a room and get live bounding boxes and labels for the objec
 
 **Live:** https://ai-object-detector-josephvillanueva.vercel.app · **[Product brief](docs/PRODUCT.md)** · **[Roadmap](https://github.com/josephvillanueva/ai-object-detector/milestone/1)**
 
-<!-- Add a screenshot or GIF and uncomment: -->
-<!-- ![Detected objects with bounding boxes](docs/demo.gif) -->
+![Detected objects with bounding boxes and labels on a live webcam feed](docs/screenshot.jpg)
 
 ## How it works
 
