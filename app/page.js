@@ -2,7 +2,7 @@ import ObjectDetection from "@/component/object-detection";
 
 export default function Home() {
   return (
-    <div className="min-h-[100dvh]">
+    <div className="min-h-dvh">
       <header className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5">
         <span className="font-semibold">AI Object Detector</span>
         <a

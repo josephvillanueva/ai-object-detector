@@ -244,7 +244,7 @@ const ObjectDetection = () => {
           {running && (
             <div className="absolute inset-x-3 top-3 flex items-center justify-between gap-2 text-xs font-medium">
               {/* One static dot, because it marks real state (live or paused). */}
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-950/70 px-2.5 py-1 backdrop-blur">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-zinc-950/70 px-2.5 py-1 backdrop-blur-sm">
                 <span
                   aria-hidden="true"
                   className={`h-2 w-2 rounded-full ${paused ? "bg-zinc-500" : "bg-red-500"}`}
@@ -252,7 +252,7 @@ const ObjectDetection = () => {
                 {paused ? "Paused" : "Live"}
               </span>
               {!paused && (
-                <span className="rounded-full bg-zinc-950/70 px-2.5 py-1 tabular-nums backdrop-blur">
+                <span className="rounded-full bg-zinc-950/70 px-2.5 py-1 tabular-nums backdrop-blur-sm">
                   {rate} fps
                 </span>
               )}
@@ -307,7 +307,7 @@ const ObjectDetection = () => {
       </section>
 
       <aside className="flex flex-col gap-4">
-        <section className="rounded-2xl bg-white/[0.03] p-5 ring-1 ring-white/10">
+        <section className="rounded-2xl bg-white/3 p-5 ring-1 ring-white/10">
           <h2 className="font-semibold">Detected now</h2>
           <div aria-live="polite">
             {detected.length === 0 ? (
